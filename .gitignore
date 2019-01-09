@@ -1,0 +1,4 @@
+.depend
+chip8
+*.o
+*.d
