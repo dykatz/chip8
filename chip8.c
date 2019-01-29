@@ -25,6 +25,10 @@ static void chip8_draw(struct chip8_state *, SDL_Renderer *);
 static void chip8_decode(struct chip8_state *, uint16_t);
 static void chip8_decode_math(struct chip8_state *, uint8_t, uint8_t, uint8_t);
 static void chip8_decode_draw(struct chip8_state *, uint8_t, uint8_t, uint8_t);
+static void chip8_decode_keys(struct chip8_state *, uint8_t, uint8_t);
+static void chip8_decode_misc(struct chip8_state *, uint8_t, uint8_t);
+static void chip8_handle_keys(struct chip8_state *, SDL_Event *);
+static void chip8_handle_timer(struct chip8_state *);
 
 int
 main(int argc, char **argv)
@@ -34,6 +38,8 @@ main(int argc, char **argv)
 	SDL_Event ev;
 	SDL_Window *win;
 	SDL_Renderer *ren;
+
+	uint8_t do_timer = 0;
 
 	if (argc != 2)
 		errx(1, "usage: %s program", argv[0]);
@@ -61,7 +67,7 @@ main(int argc, char **argv)
 			if (ev.type == SDL_QUIT)
 				goto cleanup;
 
-			/* Set Keys */
+			chip8_handle_keys(&state, &ev);
 		}
 
 		if (state.pc >= 4096)
@@ -74,6 +80,9 @@ main(int argc, char **argv)
 
 		chip8_decode(&state, opcode);
 		chip8_draw(&state, ren);
+
+		if ((do_timer = (do_timer + 1) & 1) == 0)
+			chip8_handle_timer(&state);
 
 		state.pc += 2;
 	}
@@ -207,10 +216,10 @@ chip8_decode(struct chip8_state *state, uint16_t opcode)
 		chip8_decode_draw(state, x, y, opcode & 0x000F);
 		break;
 	case 0xE000:
-		/* TODO */
+		chip8_decode_keys(state, x, opcode & 0x00FF);
 		break;
 	case 0xF000:
-		/* TODO */
+		chip8_decode_misc(state, x, opcode & 0x00FF);
 		break;
 	}
 }
@@ -300,4 +309,65 @@ chip8_decode_draw(struct chip8_state *state, uint8_t x, uint8_t y, uint8_t h)
 			spr <<= 1;
 		}
 	}
+}
+
+static void
+chip8_decode_keys(struct chip8_state *state, uint8_t x, uint8_t op)
+{
+	switch (op) {
+	case 0x9E:
+		if (state->key[state->V[x]])
+			state->pc += 2;
+		break;
+	case 0xA1:
+		if (!state->key[state->V[x]])
+			state->pc += 2;
+		break;
+	}
+}
+
+static void
+chip8_decode_misc(struct chip8_state *state, uint8_t x, uint8_t op)
+{
+	switch (op) {
+	case 0x07:
+		state->V[x] = state->delay;
+		break;
+	case 0x0A:
+		state->V[x] = state->sound;
+		break;
+	case 0x15:
+		state->delay = state->V[x];
+		break;
+	case 0x18:
+		state->sound = state->V[x];
+		break;
+	case 0x1E:
+		state->I += state->V[x];
+		break;
+	case 0x29:
+		/* TODO */
+		break;
+	case 0x33:
+		/* TODO */
+		break;
+	case 0x55:
+		/* TODO */
+		break;
+	case 0x65:
+		/* TODO */
+		break;
+	}
+}
+
+static void
+chip8_handle_keys(struct chip8_state *state, SDL_Event *ev)
+{
+	/* TODO */
+}
+
+static void
+chip8_handle_timer(struct chip8_state *state)
+{
+	/* TODO */
 }
