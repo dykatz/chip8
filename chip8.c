@@ -12,6 +12,7 @@ struct chip8_state {
 	uint16_t pc;
 	uint16_t I;
 	uint8_t  gfx[64 * 32];
+#define CHIP8_SET_GFX(s, x, y, v) ((s)->gfx[((x)&0x3F)*32+((y)&0x1F)]=(v))
 	uint16_t stack[16];
 	uint8_t  sp;
 	uint8_t  key[16];
@@ -23,6 +24,7 @@ static void chip8_init(struct chip8_state *, const char *);
 static void chip8_draw(struct chip8_state *, SDL_Renderer *);
 static void chip8_decode(struct chip8_state *, uint16_t);
 static void chip8_decode_math(struct chip8_state *, uint8_t, uint8_t, uint8_t);
+static void chip8_decode_draw(struct chip8_state *, uint8_t, uint8_t, uint8_t);
 
 int
 main(int argc, char **argv)
@@ -202,7 +204,7 @@ chip8_decode(struct chip8_state *state, uint16_t opcode)
 		state->V[x] = rand() & opcode & 0x00FF;
 		break;
 	case 0xD000:
-		/* TODO */
+		chip8_decode_draw(state, x, y, opcode & 0x000F);
 		break;
 	case 0xE000:
 		/* TODO */
@@ -275,5 +277,27 @@ chip8_decode_math(struct chip8_state *state, uint8_t op, uint8_t x, uint8_t y)
 		}
 		state->V[x] = temp;
 		break;
+	}
+}
+
+static void
+chip8_decode_draw(struct chip8_state *state, uint8_t x, uint8_t y, uint8_t h)
+{
+	uint8_t i, j, spr;
+
+	state->V[0xF] = 0;
+
+	for (j = 0; j < y; ++j) {
+		spr = state->memory[state->I + j];
+
+		for (i = 0; i < 8; ++i) {
+			if (spr & 0x80) {
+				CHIP8_SET_GFX(state,
+					state->V[x] + i, state->V[y] + j, 1);
+				state->V[0xF] = 1;
+			}
+
+			spr <<= 1;
+		}
 	}
 }
