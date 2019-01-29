@@ -374,10 +374,31 @@ chip8_decode_misc(struct chip8_state *state, uint8_t x, uint8_t op)
 static void
 chip8_handle_keys(struct chip8_state *state, SDL_Event *ev)
 {
+	uint8_t setval;
+
 	if (ev->type != SDL_KEYDOWN && ev->type != SDL_KEYUP)
 		return;
 
-	/* TODO */
+	if (ev->key.state == SDL_PRESSED)
+		setval = 1;
+	else if (ev->key.state == SDL_RELEASED)
+		setval = 0;
+
+	switch (ev->key.keysym.sym) {
+	case SDLK_h:
+		state->key[0x4] = setval;
+		break;
+	case SDLK_l:
+		state->key[0x6] = setval;
+		break;
+	case SDLK_j:
+		state->key[0x2] = setval;
+		break;
+	case SDLK_k:
+		state->key[0x8] = setval;
+		break;
+	/* TODO - add more key codes */
+	}
 }
 
 static void
@@ -388,7 +409,7 @@ chip8_handle_timer(struct chip8_state *state)
 
 	if (state->sound > 0) {
 		if (state->sound == 1) {
-			/* TODO */
+			/* TODO - beep */
 		}
 
 		--state->sound;
@@ -408,7 +429,27 @@ chip8_wait_for_key(struct chip8_state *state, uint8_t reg)
 			if (ev.type != SDL_KEYDOWN)
 				continue;
 
-			/* TODO - state->V[reg] = ...; */
+			switch (ev.key.keysym.sym) {
+			case SDLK_h:
+				state->V[reg] = 0x4;
+				state->key[0x4] = 1;
+				break;
+			case SDLK_l:
+				state->V[reg] = 0x6;
+				state->key[0x6] = 1;
+				break;
+			case SDLK_j:
+				state->V[reg] = 0x2;
+				state->key[0x2] = 1;
+				break;
+			case SDLK_k:
+				state->V[reg] = 0x8;
+				state->key[0x8] = 1;
+				break;
+			/* TODO - add more key codes */
+			default:
+				continue;
+			}
 			return;
 		}
 
