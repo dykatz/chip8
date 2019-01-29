@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <err.h>
+
 #include <SDL.h>
 
 struct chip8_state {
@@ -19,6 +21,10 @@ struct chip8_state {
 
 static void chip8_init(struct chip8_state *, const char *);
 static void chip8_draw(struct chip8_state *, SDL_Renderer *);
+static void chip8_decode(struct chip8_state *, uint16_t);
+static void chip8_decode_math(struct chip8_state *, uint8_t, uint8_t, uint8_t);
+static void chip8_op_ret(struct chip8_state *);
+static void chip8_op_call(struct chip8_state *, uint16_t);
 
 int
 main(int argc, char **argv)
@@ -40,6 +46,7 @@ main(int argc, char **argv)
 		SDL_Quit();
 		errx(1, "SDL_CreateWindow: %s", SDL_GetError());
 	}
+
 	ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 	if (ren == NULL) {
 		SDL_DestroyWindow(win);
@@ -57,13 +64,16 @@ main(int argc, char **argv)
 			/* Set Keys */
 		}
 
+		if (state.pc >= 4096)
+			goto cleanup;
+
 		opcode = *(uint16_t *)(state.memory + state.pc);
 		state.pc += 2;
 
-		printf("%#06X\n", opcode);
+		printf("%04X: %04X\n", state.pc, opcode);
 
-		if (opcode == 0x00e0)
-			SDL_RenderClear(ren);
+		chip8_decode(&state, opcode);
+		chip8_draw(&state, ren);
 	}
 
 cleanup:
@@ -97,7 +107,7 @@ chip8_init(struct chip8_state *state, const char *path)
 	FILE *fp;
 
 	memset(state, '\0', sizeof(struct chip8_state));
-	memcpy(&(state->memory[0x50]), chip8_fontset, sizeof(chip8_fontset));
+	memcpy(state->memory, chip8_fontset, sizeof(chip8_fontset));
 	state->pc = 0x200;
 
 	fp = fopen(path, "r");
@@ -117,6 +127,8 @@ chip8_draw(struct chip8_state *state, SDL_Renderer *ren)
 	r.w = 10;
 	r.h = 10;
 
+	SDL_RenderClear(ren);
+
 	for (x = 0; x < 64; ++x) {
 		for (y = 0; y < 32; ++y) {
 			if (state->gfx[(32 * x) + y] == 0)
@@ -128,4 +140,152 @@ chip8_draw(struct chip8_state *state, SDL_Renderer *ren)
 			SDL_RenderFillRect(ren, &r);
 		}
 	}
+
+	SDL_RenderPresent(ren);
+}
+
+static void
+chip8_decode(struct chip8_state *state, uint16_t opcode)
+{
+
+	switch (opcode & 0xF000) {
+	case 0x0000:
+		if (opcode == 0x00EE)
+			chip8_op_ret(state);
+		else if (opcode == 0x00E0)
+			memset(state->gfx, '\0', sizeof(uint8_t) * 32 * 64);
+		break;
+	case 0x1000:
+		state->pc = opcode & 0x0FFF;
+		break;
+	case 0x2000:
+		chip8_op_call(state, opcode & 0x0FFF);
+		break;
+	case 0x3000:
+		if (state->V[(opcode & 0x0F00) >> 8] == (opcode & 0x00FF))
+			state->pc += 2;
+		break;
+	case 0x4000:
+		if (state->V[(opcode & 0x0F00) >> 8] != (opcode & 0x00FF))
+			state->pc += 2;
+		break;
+	case 0x5000:
+		if (state->V[(opcode & 0x0F00) >> 8] ==
+				state->V[(opcode & 0x00F0) >> 4])
+			state->pc += 2;
+		break;
+	case 0x6000:
+		state->V[(opcode & 0x0F00) >> 8] = opcode & 0x00FF;
+		break;
+	case 0x7000:
+		state->V[(opcode & 0x0F00) >> 8] += opcode & 0x00FF;
+		break;
+	case 0x8000:
+		chip8_decode_math(state, opcode & 0x000F,
+			(opcode & 0x00F0) >> 4, (opcode & 0x0F00) >> 8);
+		break;
+	case 0x9000:
+		if (state->V[(opcode & 0x0F00) >> 8] !=
+				state->V[(opcode & 0x00F0) >> 4])
+			state->pc += 2;
+		break;
+	case 0xA000:
+		state->I = opcode & 0x0F00;
+		break;
+	case 0xB000:
+		state->pc = state->V[0] + (opcode & 0x0FFF);
+		break;
+	case 0xC000:
+		state->V[(opcode & 0x0F00) >> 8] = rand() & opcode & 0x00FF;
+		break;
+	case 0xD000:
+		/* TODO */
+		break;
+	case 0xE000:
+		/* TODO */
+		break;
+	case 0xF000:
+		/* TODO */
+		break;
+	}
+}
+
+static void
+chip8_decode_math(struct chip8_state *state, uint8_t op, uint8_t x, uint8_t y)
+{
+	int16_t temp;
+
+	switch (op) {
+	case 0x0:
+		state->V[x] = state->V[y];
+		break;
+	case 0x1:
+		state->V[x] |= state->V[y];
+		break;
+	case 0x2:
+		state->V[x] &= state->V[y];
+		break;
+	case 0x3:
+		state->V[x] ^= state->V[y];
+		break;
+	case 0x4:
+		temp = state->V[x] + state->V[y];
+		if (temp > 255) {
+			state->V[0xF] = 1;
+			temp -= 0xFF;
+		} else {
+			state->V[0xF] = 0;
+		}
+		state->V[x] = temp;
+		break;
+	case 0x5:
+		temp = state->V[x] - state->V[y];
+		if (temp < 0) {
+			state->V[0xF] = 0;
+			temp += 0xFF;
+		} else {
+			state->V[0xF] = 1;
+		}
+		state->V[x] = temp;
+		break;
+	case 0x6:
+		state->V[0xF] = state->V[x] & 0x1;
+		state->V[x] >>= 1;
+		break;
+	case 0x7:
+		temp = state->V[y] - state->V[x];
+		if (temp < 0) {
+			state->V[0xF] = 0;
+			temp += 0xFF;
+		} else {
+			state->V[0xF] = 1;
+		}
+		state->V[x] = temp;
+		break;
+	case 0xE:
+		temp = state->V[x] << 1;
+		if (temp > 255) {
+			state->V[0xF] = 1;
+			temp -= 0xFF;
+		} else {
+			state->V[0xF] = 0;
+		}
+		state->V[x] = temp;
+		break;
+	}
+}
+
+
+static void
+chip8_op_ret(struct chip8_state *state)
+{
+	state->pc = state->stack[--state->pc];
+}
+
+static void
+chip8_op_call(struct chip8_state *state, uint16_t addr)
+{
+	state->stack[state->sp] = state->pc;
+	++state->sp;
+	state->pc = addr;
 }
