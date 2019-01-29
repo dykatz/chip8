@@ -78,13 +78,12 @@ main(int argc, char **argv)
 
 		printf("%04X: %04X\n", state.pc, opcode);
 
+		state.pc += 2;
 		chip8_decode(&state, opcode);
 		chip8_draw(&state, ren);
 
 		if ((do_timer = (do_timer + 1) & 1) == 0)
 			chip8_handle_timer(&state);
-
-		state.pc += 2;
 	}
 
 cleanup:
@@ -346,7 +345,7 @@ chip8_decode_misc(struct chip8_state *state, uint8_t x, uint8_t op)
 		state->I += state->V[x];
 		break;
 	case 0x29:
-		/* TODO */
+		state->I = state->V[x] * 5;
 		break;
 	case 0x33:
 		/* TODO */
@@ -369,5 +368,14 @@ chip8_handle_keys(struct chip8_state *state, SDL_Event *ev)
 static void
 chip8_handle_timer(struct chip8_state *state)
 {
-	/* TODO */
+	if (state->delay > 0)
+		--state->delay;
+
+	if (state->sound > 0) {
+		if (state->sound == 1) {
+			/* TODO */
+		}
+
+		--state->sound;
+	}
 }
