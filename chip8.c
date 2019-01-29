@@ -7,21 +7,24 @@
 #include <SDL.h>
 
 struct chip8_state {
-	uint8_t  memory[4096];
-	uint8_t  V[16];
-	uint16_t pc;
-	uint16_t I;
-	uint8_t  gfx[64 * 32];
+	uint8_t       memory[4096];
+	uint8_t       V[16];
+	uint16_t      pc;
+	uint16_t      I;
+	uint8_t       gfx[64 * 32];
 #define CHIP8_SET_GFX(s, x, y, v) ((s)->gfx[((x)&0x3F)*32+((y)&0x1F)]=(v))
-	uint16_t stack[16];
-	uint8_t  sp;
-	uint8_t  key[16];
-	uint16_t delay;
-	uint16_t sound;
+	uint16_t      stack[16];
+	uint8_t       sp;
+	uint8_t       key[16];
+	uint16_t      delay;
+	uint16_t      sound;
+
+	SDL_Window   *win;
+	SDL_Renderer *ren;
 };
 
 static void chip8_init(struct chip8_state *, const char *);
-static void chip8_draw(struct chip8_state *, SDL_Renderer *);
+static void chip8_draw(struct chip8_state *);
 static void chip8_decode(struct chip8_state *, uint16_t);
 static void chip8_decode_math(struct chip8_state *, uint8_t, uint8_t, uint8_t);
 static void chip8_decode_draw(struct chip8_state *, uint8_t, uint8_t, uint8_t);
@@ -29,6 +32,7 @@ static void chip8_decode_keys(struct chip8_state *, uint8_t, uint8_t);
 static void chip8_decode_misc(struct chip8_state *, uint8_t, uint8_t);
 static void chip8_handle_keys(struct chip8_state *, SDL_Event *);
 static void chip8_handle_timer(struct chip8_state *);
+static void chip8_wait_for_key(struct chip8_state *, uint8_t);
 
 int
 main(int argc, char **argv)
@@ -36,8 +40,6 @@ main(int argc, char **argv)
 	struct chip8_state state;
 
 	SDL_Event ev;
-	SDL_Window *win;
-	SDL_Renderer *ren;
 
 	uint8_t do_timer = 0;
 
@@ -47,15 +49,17 @@ main(int argc, char **argv)
 	chip8_init(&state, argv[1]);
 
 	SDL_Init(SDL_INIT_VIDEO);
-	win = SDL_CreateWindow("CHIP-8", 100, 100, 640, 320, SDL_WINDOW_SHOWN);
-	if (win == NULL) {
+	state.win = SDL_CreateWindow("CHIP-8", 100, 100, 640, 320,
+		SDL_WINDOW_SHOWN);
+	if (state.win == NULL) {
 		SDL_Quit();
 		errx(1, "SDL_CreateWindow: %s", SDL_GetError());
 	}
 
-	ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-	if (ren == NULL) {
-		SDL_DestroyWindow(win);
+	state.ren = SDL_CreateRenderer(state.win, -1,
+		SDL_RENDERER_ACCELERATED);
+	if (state.ren == NULL) {
+		SDL_DestroyWindow(state.win);
 		SDL_Quit();
 		errx(1, "SDL_CreateRenderer: %s", SDL_GetError());
 	}
@@ -80,15 +84,15 @@ main(int argc, char **argv)
 
 		state.pc += 2;
 		chip8_decode(&state, opcode);
-		chip8_draw(&state, ren);
+		chip8_draw(&state);
 
 		if ((do_timer = (do_timer + 1) & 1) == 0)
 			chip8_handle_timer(&state);
 	}
 
 cleanup:
-	SDL_DestroyRenderer(ren);
-	SDL_DestroyWindow(win);
+	SDL_DestroyRenderer(state.ren);
+	SDL_DestroyWindow(state.win);
 	SDL_Quit();
 }
 
@@ -129,7 +133,7 @@ chip8_init(struct chip8_state *state, const char *path)
 }
 
 static void
-chip8_draw(struct chip8_state *state, SDL_Renderer *ren)
+chip8_draw(struct chip8_state *state)
 {
 	int x, y;
 	SDL_Rect r;
@@ -137,7 +141,7 @@ chip8_draw(struct chip8_state *state, SDL_Renderer *ren)
 	r.w = 10;
 	r.h = 10;
 
-	SDL_RenderClear(ren);
+	SDL_RenderClear(state->ren);
 
 	for (x = 0; x < 64; ++x) {
 		for (y = 0; y < 32; ++y) {
@@ -147,11 +151,11 @@ chip8_draw(struct chip8_state *state, SDL_Renderer *ren)
 			r.x = x * 10;
 			r.y = y * 10;
 
-			SDL_RenderFillRect(ren, &r);
+			SDL_RenderFillRect(state->ren, &r);
 		}
 	}
 
-	SDL_RenderPresent(ren);
+	SDL_RenderPresent(state->ren);
 }
 
 static void
@@ -328,12 +332,14 @@ chip8_decode_keys(struct chip8_state *state, uint8_t x, uint8_t op)
 static void
 chip8_decode_misc(struct chip8_state *state, uint8_t x, uint8_t op)
 {
+	uint8_t i, n;
+
 	switch (op) {
 	case 0x07:
 		state->V[x] = state->delay;
 		break;
 	case 0x0A:
-		state->V[x] = state->sound;
+		chip8_wait_for_key(state, x);
 		break;
 	case 0x15:
 		state->delay = state->V[x];
@@ -348,13 +354,19 @@ chip8_decode_misc(struct chip8_state *state, uint8_t x, uint8_t op)
 		state->I = state->V[x] * 5;
 		break;
 	case 0x33:
-		/* TODO */
+		n = state->V[x];
+		for (i = 3; i > 0; --i) {
+			state->memory[state->I + i - 1] = n % 10;
+			n /= 10;
+		}
 		break;
 	case 0x55:
-		/* TODO */
+		for (i = 0; i < x; ++i)
+			state->memory[state->I + i] = state->V[i];
 		break;
 	case 0x65:
-		/* TODO */
+		for (i = 0; i < x; ++i)
+			state->V[i] = state->memory[state->I + i];
 		break;
 	}
 }
@@ -362,6 +374,9 @@ chip8_decode_misc(struct chip8_state *state, uint8_t x, uint8_t op)
 static void
 chip8_handle_keys(struct chip8_state *state, SDL_Event *ev)
 {
+	if (ev->type != SDL_KEYDOWN && ev->type != SDL_KEYUP)
+		return;
+
 	/* TODO */
 }
 
@@ -378,4 +393,31 @@ chip8_handle_timer(struct chip8_state *state)
 
 		--state->sound;
 	}
+}
+
+static void
+chip8_wait_for_key(struct chip8_state *state, uint8_t reg)
+{
+	SDL_Event ev;
+
+	for (;;) {
+		while (SDL_PollEvent(&ev)) {
+			if (ev.type == SDL_QUIT)
+				goto shutdown;
+
+			if (ev.type != SDL_KEYDOWN)
+				continue;
+
+			/* TODO - state->V[reg] = ...; */
+			return;
+		}
+
+		chip8_draw(state);
+	}
+
+shutdown:
+	SDL_DestroyRenderer(state->ren);
+	SDL_DestroyWindow(state->win);
+	SDL_Quit();
+	exit(0);
 }
