@@ -385,19 +385,11 @@ chip8_handle_keys(struct chip8_state *state, SDL_Event *ev)
 		setval = 0;
 
 	switch (ev->key.keysym.sym) {
-	case SDLK_h:
-		state->key[0x4] = setval;
+#define KEYMAP(s, n)	case (s):\
+		state->key[(n)] = setval;\
 		break;
-	case SDLK_l:
-		state->key[0x6] = setval;
-		break;
-	case SDLK_j:
-		state->key[0x2] = setval;
-		break;
-	case SDLK_k:
-		state->key[0x8] = setval;
-		break;
-	/* TODO - add more key codes */
+#include "keymap.def"
+#undef KEYMAP
 	}
 }
 
@@ -430,23 +422,12 @@ chip8_wait_for_key(struct chip8_state *state, uint8_t reg)
 				continue;
 
 			switch (ev.key.keysym.sym) {
-			case SDLK_h:
-				state->V[reg] = 0x4;
-				state->key[0x4] = 1;
+#define KEYMAP(s, n)	case (s):\
+				state->V[reg] = (n);\
+				state->key[(n)] = 1;\
 				break;
-			case SDLK_l:
-				state->V[reg] = 0x6;
-				state->key[0x6] = 1;
-				break;
-			case SDLK_j:
-				state->V[reg] = 0x2;
-				state->key[0x2] = 1;
-				break;
-			case SDLK_k:
-				state->V[reg] = 0x8;
-				state->key[0x8] = 1;
-				break;
-			/* TODO - add more key codes */
+#include "keymap.def"
+#undef KEYMAP
 			default:
 				continue;
 			}

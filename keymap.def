@@ -1,0 +1,20 @@
+/* Navigation Keys - h j k l */
+KEYMAP(SDLK_h, 0x4)
+KEYMAP(SDLK_j, 0x2)
+KEYMAP(SDLK_k, 0x8)
+KEYMAP(SDLK_l, 0x6)
+
+/* Odd Numbers - a s d f g */
+KEYMAP(SDLK_a, 0x1)
+KEYMAP(SDLK_s, 0x3)
+KEYMAP(SDLK_d, 0x5)
+KEYMAP(SDLK_f, 0x7)
+KEYMAP(SDLK_g, 0x9)
+
+/* Letters - q w e r t y */
+KEYMAP(SDLK_q, 0xA)
+KEYMAP(SDLK_w, 0xB)
+KEYMAP(SDLK_e, 0xC)
+KEYMAP(SDLK_r, 0xD)
+KEYMAP(SDLK_t, 0xE)
+KEYMAP(SDLK_y, 0xF)
