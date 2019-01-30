@@ -79,10 +79,8 @@ main(int argc, char **argv)
 
 		opcode = (state.memory[state.pc] << 8)
 			| state.memory[state.pc + 1];
-
-		printf("%04X: %04X\n", state.pc, opcode);
-
 		state.pc += 2;
+
 		chip8_decode(&state, opcode);
 		chip8_draw(&state);
 
@@ -141,7 +139,9 @@ chip8_draw(struct chip8_state *state)
 	r.w = 10;
 	r.h = 10;
 
+	SDL_SetRenderDrawColor(state->ren, 0, 0, 0, 255);
 	SDL_RenderClear(state->ren);
+	SDL_SetRenderDrawColor(state->ren, 255, 255, 255, 255);
 
 	for (x = 0; x < 64; ++x) {
 		for (y = 0; y < 32; ++y) {
