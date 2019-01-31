@@ -6,13 +6,15 @@
 
 #include <SDL.h>
 
+#define CHIP8_SCALE (10)
+#define CHIP8_WIDTH (64)
+#define CHIP8_HEIGHT (32)
+
 struct chip8_state {
 	uint8_t       memory[4096];
 	uint8_t       V[16];
 	uint16_t      pc;
 	uint16_t      I;
-#define CHIP8_WIDTH (64)
-#define CHIP8_HEIGHT (32)
 	uint8_t       gfx[CHIP8_WIDTH * CHIP8_HEIGHT];
 #define CHIP8_TOGGLE_PIXEL(s, x, y) ((s)->gfx[\
 	((x) % CHIP8_WIDTH) + CHIP8_WIDTH * ((y) % CHIP8_HEIGHT)\
@@ -44,9 +46,7 @@ int
 main(int argc, char **argv)
 {
 	struct chip8_state state;
-
 	SDL_Event ev;
-
 	uint8_t do_timer = 0;
 
 	if (argc != 2)
@@ -55,8 +55,9 @@ main(int argc, char **argv)
 	chip8_init(&state, argv[1]);
 
 	SDL_Init(SDL_INIT_VIDEO);
-	state.win = SDL_CreateWindow("CHIP-8", 100, 100, 10 * CHIP8_WIDTH,
-		10 * CHIP8_HEIGHT, SDL_WINDOW_SHOWN);
+	state.win = SDL_CreateWindow("CHIP-8", 100, 100,
+		CHIP8_SCALE * CHIP8_WIDTH, CHIP8_SCALE * CHIP8_HEIGHT,
+		SDL_WINDOW_SHOWN);
 	if (state.win == NULL) {
 		SDL_Quit();
 		errx(1, "SDL_CreateWindow: %s", SDL_GetError());
@@ -145,8 +146,8 @@ chip8_draw(struct chip8_state *state)
 	if ((state->flags & CHIP8_DRAW_FLAG) == 0)
 		return;
 
-	r.w = 10;
-	r.h = 10;
+	r.w = CHIP8_SCALE;
+	r.h = CHIP8_SCALE;
 
 	SDL_SetRenderDrawColor(state->ren, 0, 0, 0, 255);
 	SDL_RenderClear(state->ren);
@@ -157,8 +158,8 @@ chip8_draw(struct chip8_state *state)
 			if (state->gfx[x + CHIP8_WIDTH * y] == 0)
 				continue;
 
-			r.x = x * 10;
-			r.y = y * 10;
+			r.x = x * CHIP8_SCALE;
+			r.y = y * CHIP8_SCALE;
 
 			SDL_RenderFillRect(state->ren, &r);
 		}
