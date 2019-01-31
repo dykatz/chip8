@@ -11,13 +11,19 @@ struct chip8_state {
 	uint8_t       V[16];
 	uint16_t      pc;
 	uint16_t      I;
-	uint8_t       gfx[64 * 32];
-#define CHIP8_SET_GFX(s, x, y, v) ((s)->gfx[((x)&0x3F)*32+((y)&0x1F)]=(v))
+#define CHIP8_WIDTH (64)
+#define CHIP8_HEIGHT (32)
+	uint8_t       gfx[CHIP8_WIDTH * CHIP8_HEIGHT];
+#define CHIP8_TOGGLE_PIXEL(s, x, y) ((s)->gfx[\
+	((x) % CHIP8_WIDTH) + CHIP8_WIDTH * ((y) % CHIP8_HEIGHT)\
+	] ^= 1)
 	uint16_t      stack[16];
 	uint8_t       sp;
 	uint8_t       key[16];
 	uint16_t      delay;
 	uint16_t      sound;
+	uint8_t       flags;
+#define CHIP8_DRAW_FLAG (0x1)
 
 	SDL_Window   *win;
 	SDL_Renderer *ren;
@@ -49,8 +55,8 @@ main(int argc, char **argv)
 	chip8_init(&state, argv[1]);
 
 	SDL_Init(SDL_INIT_VIDEO);
-	state.win = SDL_CreateWindow("CHIP-8", 100, 100, 640, 320,
-		SDL_WINDOW_SHOWN);
+	state.win = SDL_CreateWindow("CHIP-8", 100, 100, 10 * CHIP8_WIDTH,
+		10 * CHIP8_HEIGHT, SDL_WINDOW_SHOWN);
 	if (state.win == NULL) {
 		SDL_Quit();
 		errx(1, "SDL_CreateWindow: %s", SDL_GetError());
@@ -136,6 +142,9 @@ chip8_draw(struct chip8_state *state)
 	int x, y;
 	SDL_Rect r;
 
+	if ((state->flags & CHIP8_DRAW_FLAG) == 0)
+		return;
+
 	r.w = 10;
 	r.h = 10;
 
@@ -143,9 +152,9 @@ chip8_draw(struct chip8_state *state)
 	SDL_RenderClear(state->ren);
 	SDL_SetRenderDrawColor(state->ren, 255, 255, 255, 255);
 
-	for (x = 0; x < 64; ++x) {
-		for (y = 0; y < 32; ++y) {
-			if (state->gfx[(32 * x) + y] == 0)
+	for (x = 0; x < CHIP8_WIDTH; ++x) {
+		for (y = 0; y < CHIP8_HEIGHT; ++y) {
+			if (state->gfx[x + CHIP8_WIDTH * y] == 0)
 				continue;
 
 			r.x = x * 10;
@@ -156,6 +165,7 @@ chip8_draw(struct chip8_state *state)
 	}
 
 	SDL_RenderPresent(state->ren);
+	state->flags &= ~CHIP8_DRAW_FLAG;
 }
 
 static void
@@ -171,7 +181,7 @@ chip8_decode(struct chip8_state *state, uint16_t opcode)
 		if (opcode == 0x00EE)
 			state->pc = state->stack[--state->sp];
 		else if (opcode == 0x00E0)
-			memset(state->gfx, '\0', sizeof(uint8_t) * 32 * 64);
+			memset(state->gfx, '\0', CHIP8_WIDTH * CHIP8_HEIGHT);
 		break;
 	case 0x1000:
 		state->pc = opcode & 0x0FFF;
@@ -304,14 +314,16 @@ chip8_decode_draw(struct chip8_state *state, uint8_t x, uint8_t y, uint8_t h)
 
 		for (i = 0; i < 8; ++i) {
 			if (spr & 0x80) {
-				CHIP8_SET_GFX(state,
-					state->V[x] + i, state->V[y] + j, 1);
-				state->V[0xF] = 1;
+				if (CHIP8_TOGGLE_PIXEL(state,
+					state->V[x] + i, state->V[y] + j) == 0)
+					state->V[0xF] = 1;
 			}
 
 			spr <<= 1;
 		}
 	}
+
+	state->flags |= CHIP8_DRAW_FLAG;
 }
 
 static void
