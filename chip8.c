@@ -260,7 +260,7 @@ chip8_decode_math(struct chip8_state *state, uint8_t op, uint8_t x, uint8_t y)
 		temp = state->V[x] + state->V[y];
 		if (temp > 255) {
 			state->V[0xF] = 1;
-			temp -= 0xFF;
+			temp = temp % 256;
 		} else {
 			state->V[0xF] = 0;
 		}
@@ -270,7 +270,7 @@ chip8_decode_math(struct chip8_state *state, uint8_t op, uint8_t x, uint8_t y)
 		temp = state->V[x] - state->V[y];
 		if (temp < 0) {
 			state->V[0xF] = 0;
-			temp += 0xFF;
+			temp = (temp % 256) + 256;
 		} else {
 			state->V[0xF] = 1;
 		}
@@ -284,7 +284,7 @@ chip8_decode_math(struct chip8_state *state, uint8_t op, uint8_t x, uint8_t y)
 		temp = state->V[y] - state->V[x];
 		if (temp < 0) {
 			state->V[0xF] = 0;
-			temp += 0xFF;
+			temp = (temp % 256) + 256;
 		} else {
 			state->V[0xF] = 1;
 		}
@@ -294,7 +294,7 @@ chip8_decode_math(struct chip8_state *state, uint8_t op, uint8_t x, uint8_t y)
 		temp = state->V[x] << 1;
 		if (temp > 255) {
 			state->V[0xF] = 1;
-			temp -= 0xFF;
+			temp = temp % 256;
 		} else {
 			state->V[0xF] = 0;
 		}
