@@ -132,7 +132,7 @@ chip8_init(struct chip8_state *state, const char *path)
 	if (fp == NULL)
 		err(1, "fopen");
 
-	fread(&(state->memory[0x200]), sizeof(uint8_t), 3136, fp);
+	fread(state->memory + 0x200, sizeof(uint8_t), 3136, fp);
 	fclose(fp);
 }
 
@@ -143,7 +143,7 @@ chip8_draw(struct chip8_state *state)
 	SDL_Rect	r;
 
 	if ((state->flags & CHIP8_DRAW_FLAG) == 0)
-		return;
+		goto draw_end;
 
 	r.w = CHIP8_SCALE;
 	r.h = CHIP8_SCALE;
@@ -164,6 +164,7 @@ chip8_draw(struct chip8_state *state)
 		}
 	}
 
+draw_end:
 	SDL_RenderPresent(state->ren);
 	state->flags &= ~CHIP8_DRAW_FLAG;
 }
@@ -331,11 +332,11 @@ chip8_decode_keys(struct chip8_state *state, uint8_t x, uint8_t op)
 {
 	switch (op) {
 	case 0x9E:
-		if (state->key[state->V[x]])
+		if (state->key[state->V[x] & 0xF])
 			state->pc += 2;
 		break;
 	case 0xA1:
-		if (!state->key[state->V[x]])
+		if (!state->key[state->V[x] & 0xF])
 			state->pc += 2;
 		break;
 	}
@@ -373,11 +374,11 @@ chip8_decode_misc(struct chip8_state *state, uint8_t x, uint8_t op)
 		}
 		break;
 	case 0x55:
-		for (i = 0; i < x; ++i)
+		for (i = 0; i <= x; ++i)
 			state->memory[state->I + i] = state->V[i];
 		break;
 	case 0x65:
-		for (i = 0; i < x; ++i)
+		for (i = 0; i <= x; ++i)
 			state->V[i] = state->memory[state->I + i];
 		break;
 	}
