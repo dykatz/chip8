@@ -89,10 +89,14 @@ main(int argc, char **argv)
 		state.pc += 2;
 
 		chip8_decode(&state, opcode);
-		chip8_draw(&state);
+
+		if (state.flags & CHIP8_DRAW_FLAG)
+			chip8_draw(&state);
 
 		if ((do_timer = (do_timer + 1) & 1) == 0)
 			chip8_handle_timer(&state);
+
+		SDL_Delay(1);
 	}
 
 cleanup:
@@ -142,9 +146,6 @@ chip8_draw(struct chip8_state *state)
 	int		x, y;
 	SDL_Rect	r;
 
-	if ((state->flags & CHIP8_DRAW_FLAG) == 0)
-		goto draw_end;
-
 	r.w = CHIP8_SCALE;
 	r.h = CHIP8_SCALE;
 
@@ -164,7 +165,6 @@ chip8_draw(struct chip8_state *state)
 		}
 	}
 
-draw_end:
 	SDL_RenderPresent(state->ren);
 	state->flags &= ~CHIP8_DRAW_FLAG;
 }
