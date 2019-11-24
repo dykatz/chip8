@@ -11,6 +11,24 @@
 The game
 .Nm
 plays a CHIP-8 ROM. It will appear in its own window.
+.Sh CONTROLS
+CHIP-8 uses a 16 key keypad that does not correspond to the way a normal
+keyboard is layed out. The keys are the hexedecimal digits (0-9, A-F), and
+layed out as follows:
+.Bl -column
+.It C Ta D Ta E Ta F
+.It 8 Ta 9 Ta A Ta B
+.It 4 Ta 5 Ta 6 Ta 7
+.It 0 Ta 1 Ta 2 Ta 3
+.El
+These are mapped to the rightmost 16 keys on the standard QWERTY keyboard:
+.Bl -column
+.It 1 Ta 2 Ta 3 Ta 4
+.It Q Ta W Ta E Ta R
+.It A Ta S Ta D Ta F
+.It Z Ta X Ta C Ta V
+.El
+Unfortunately, this is hardcoded at compile time.
 .Sh SEE ALSO
 .Xr intro 6
 .Sh AUTHORS
